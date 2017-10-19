@@ -19,6 +19,10 @@ pub struct Iter<'a, T: 'a> {
     next: Option<&'a Node<T>>
 }
 
+pub struct IterMut<'a, T: 'a> {
+    next: Option<&'a mut Node<T>>
+}
+
 impl<T> List<T> {
     pub fn new() -> Self {
         List { head: None }
@@ -47,8 +51,11 @@ impl<T> List<T> {
     pub fn into_iter(self) -> IntoIter<T> {
         IntoIter(self)
     }
-    pub fn iter<'a>(&'a self) -> Iter<'a, T> {
+    pub fn iter(&self) -> Iter<T> {
         Iter { next: self.head.as_ref().map(|node| &**node) }
+    }
+    pub fn iter_mut(&mut self) -> IterMut<T> {
+        IterMut { next: self.head.as_mut().map(|node| &mut **node) }
     }
 }
 
@@ -69,6 +76,17 @@ impl<'a, T> Iterator for Iter<'a, T> {
     }
 }
 
+impl<'a, T> Iterator for IterMut<'a, T> {
+    type Item = &'a mut T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.take().map(|node| {
+            self.next = node.next.as_mut().map(|node| &mut **node);
+            &mut node.elem
+        })
+    }
+}
+
 impl<T> Drop for List<T> {
     fn drop(&mut self) {
         let mut cur_link = self.head.take();
@@ -84,6 +102,7 @@ impl<T> Drop for List<T> {
 #[cfg(test)]
 mod test {
     use super::List;
+    use super::add_nums_to_list;
     #[test]
     fn basics() {
         let mut list = List::new();
@@ -100,23 +119,14 @@ mod test {
 
     #[test]
     fn peek() {
-        let mut list = List::new();
-        assert_eq!(list.peek(), None);
-
-        list.push(1);
-        list.push(2);
-        list.push(3);
+        let mut list = add_nums_to_list(3);
 
         assert_eq!(list.peek(), Some(&3));
         assert_eq!(list.pop(), Some(3));
     }
     #[test]
     fn into_iter() {
-        let mut list = List::new();
-
-        list.push(1);
-        list.push(2);
-        list.push(3);
+        let list = add_nums_to_list(3);
 
         let mut iter = list.into_iter();
         assert_eq!(iter.next(), Some(3));
@@ -125,14 +135,26 @@ mod test {
     }
     #[test]
     fn iter() {
-        let mut list = List::new();
-        list.push(1);
-        list.push(2);
-        list.push(3);
+        let list = add_nums_to_list(3);
 
         let mut iter = list.iter();
         assert_eq!(iter.next(), Some(&3));
         assert_eq!(iter.next(), Some(&2));
         assert_eq!(iter.next(), Some(&1));
     }
+    #[test]
+    fn iter_mut() {
+        let mut list = add_nums_to_list(3);
+        let mut iter_mut = list.iter_mut();
+        assert_eq!(iter_mut.next(), Some(&mut 3));
+    }
+}
+
+pub fn add_nums_to_list(upper_bound: i32) -> List<i32> {
+    let mut list = List::new();
+    for num in 0..(upper_bound + 1) {
+        list.push(num);
+    };
+
+    list
 }
